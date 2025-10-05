@@ -1,0 +1,104 @@
+# =====================================================
+# Docker Compose für IT-Problems Tracker
+# Backend + Redis (optional für zukünftige Queue)
+# =====================================================
+
+version: '3.8'
+
+services:
+  # ==================== Backend API ====================
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NODE_ENV: production
+    image: it-problems-tracker-backend:latest
+    container_name: eurika-backend
+    restart: unless-stopped
+    
+    # Port-Mapping
+    ports:
+      - "3000:3000"
+    
+    # Environment-Variablen
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # Supabase Credentials (aus .env)
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+    
+    # .env-Datei laden
+    env_file:
+      - .env
+    
+    # Volumes für Logs & Modell-Cache
+    volumes:
+      - ./logs:/app/logs
+      - model-cache:/app/node_modules/@xenova/transformers/.cache
+    
+    # Health-Check
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health/live', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Networking
+    networks:
+      - eurika-network
+    
+    # Resource Limits (optional)
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+  
+  # ==================== Redis (Optional) ====================
+  # Nur aktivieren wenn Queue-System benötigt wird
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: eurika-redis
+  #   restart: unless-stopped
+  #   
+  #   ports:
+  #     - "6379:6379"
+  #   
+  #   volumes:
+  #     - redis-data:/data
+  #   
+  #   command: redis-server --appendonly yes
+  #   
+  #   networks:
+  #     - eurika-network
+  #   
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+# ==================== Volumes ====================
+volumes:
+  model-cache:
+    driver: local
+  # redis-data:
+  #   driver: local
+
+# ==================== Networks ====================
+networks:
+  eurika-network:
+    driver: bridge
