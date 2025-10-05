@@ -4,7 +4,7 @@
 # =====================================================
 
 # ==================== Stage 1: Builder ====================
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 # Build-Argumente
 ARG NODE_ENV=production
@@ -24,16 +24,23 @@ RUN npm ci --only=production && \
 COPY . .
 
 # ==================== Stage 2: Runner ====================
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 
 # Metadata
 LABEL maintainer="IT-Problems Tracker"
 LABEL version="2.0.0"
 LABEL description="Backend API mit Semantic Search"
 
+# System-Dependencies für ONNX Runtime installieren
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    wget \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 # Non-root User erstellen (Security)
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+RUN groupadd -g 1001 nodejs && \
+    useradd -r -u 1001 -g nodejs nodejs
 
 # Arbeitsverzeichnis
 WORKDIR /app
